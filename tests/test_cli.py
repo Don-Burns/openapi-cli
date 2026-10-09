@@ -1,28 +1,22 @@
 import argparse
-import tempfile
-import unittest
 from pathlib import Path
+
+import pytest
 
 from openapi_preview.cli import find_spec, port_number, resolve_spec
 
 
-class CliTests(unittest.TestCase):
-    def test_discovery_and_ambiguous_specs(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            spec = root / "openapi.yaml"
-            spec.touch()
-            self.assertEqual(find_spec(root), spec)
-            self.assertEqual(resolve_spec(str(spec)), spec)
-            (root / "swagger.yml").touch()
-            with self.assertRaisesRegex(ValueError, "Multiple"):
-                find_spec(root)
-
-    def test_port_range(self):
-        self.assertEqual(port_number("8000"), 8000)
-        with self.assertRaises(argparse.ArgumentTypeError):
-            port_number("0")
+def test_discovery_and_ambiguous_specs(tmp_path: Path) -> None:
+    spec = tmp_path / "openapi.yaml"
+    spec.touch()
+    assert find_spec(tmp_path) == spec
+    assert resolve_spec(str(spec)) == spec
+    (tmp_path / "swagger.yml").touch()
+    with pytest.raises(ValueError, match="Multiple"):
+        find_spec(tmp_path)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_port_range() -> None:
+    assert port_number("8000") == 8000
+    with pytest.raises(argparse.ArgumentTypeError):
+        port_number("0")

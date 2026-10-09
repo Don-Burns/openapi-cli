@@ -41,14 +41,23 @@ This project uses [uv](https://docs.astral.sh/uv/) to manage Python and project 
 ```sh
 # Install uv first, if needed: https://docs.astral.sh/uv/getting-started/installation/
 
-# Install project dependencies into the environment
-uv sync
+# Install project and development dependencies
+uv sync --group dev
+
+# Enable lint/type checks
+uv run pre-commit install
 
 # Run the CLI from the project environment
 uv run openapi preview ./api/openapi.yaml
+
+# Run checks and tests
+uv run pre-commit run --all-files
+uv run pytest
 ```
 
 After changing project dependencies, update `pyproject.toml` and the lockfile with `uv add` or `uv remove`, then run `uv sync`.
+
+Releases use [release-please](https://github.com/googleapis/release-please). Use Conventional Commit messages (`fix:`, `feat:`, and `feat!:`); release-please opens a version/changelog PR and creates the `vX.Y.Z` tag and GitHub Release when that PR is merged.
 
 ## Implementation notes
 

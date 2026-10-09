@@ -13,8 +13,17 @@ dependencies = ["swagger-ui-bundle>=1.1,<2"]
 [project.scripts]
 openapi = "openapi_preview.cli:main"
 
+[dependency-groups]
+dev = ["mypy>=1.15", "pre-commit>=4.2", "pytest>=8", "ruff>=0.11"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/openapi_preview"]
 
-[tool.pytest.ini_options]
-pythonpath = ["src"]
+[tool.mypy]
+strict = true
+
+# Swagger bundle is a third-party package that does not have type hints
+# and is basically all javascript, so we need to ignore missing imports for it.
+[[tool.mypy.overrides]] 
+module = ["swagger_ui_bundle"]
+ignore_missing_imports = true

@@ -1,5 +1,6 @@
 import http.server
 import mimetypes
+import socket
 import threading
 import webbrowser
 from pathlib import Path
@@ -9,11 +10,9 @@ from swagger_ui_bundle import swagger_ui_path
 
 
 def free_port() -> int:
-    import socket
-
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
+        return int(sock.getsockname()[1])
 
 
 def serve(spec: Path, requested_port: int | None = None) -> None:
@@ -21,6 +20,7 @@ def serve(spec: Path, requested_port: int | None = None) -> None:
     ui_dir = Path(swagger_ui_path)
     port = requested_port or 8000
     host = "127.0.0.1"
+    stopping = threading.Event()
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -31,7 +31,9 @@ def serve(spec: Path, requested_port: int | None = None) -> None:
                 try:
                     data = spec.read_bytes()
                 except OSError:
-                    self.respond(404, "text/plain; charset=utf-8", "Spec file not found")
+                    self.respond(
+                        404, "text/plain; charset=utf-8", "Spec file not found"
+                    )
                 else:
                     self.respond(200, "application/yaml", data)
             elif path == "/events":
@@ -46,13 +48,17 @@ def serve(spec: Path, requested_port: int | None = None) -> None:
                     previous = spec.stat().st_mtime_ns
                 except OSError:
                     previous = None
-                while not self.server.stopping.wait(0.5):
+                while not stopping.wait(0.5):
                     try:
                         current = spec.stat().st_mtime_ns
                     except OSError:
                         current = None
                     try:
-                        self.wfile.write(b"data: reload\n\n" if current != previous else b": keepalive\n\n")
+                        self.wfile.write(
+                            b"data: reload\n\n"
+                            if current != previous
+                            else b": keepalive\n\n"
+                        )
                         self.wfile.flush()
                     except (BrokenPipeError, ConnectionResetError):
                         break
@@ -67,7 +73,9 @@ def serve(spec: Path, requested_port: int | None = None) -> None:
             if not target.is_relative_to(ui_dir.resolve()) or not target.is_file():
                 self.respond(404, "text/plain; charset=utf-8", "Not found")
                 return
-            content_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+            content_type = (
+                mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+            )
             self.respond(200, content_type, target.read_bytes())
 
         def respond(self, status: int, content_type: str, body: str | bytes) -> None:
@@ -89,7 +97,6 @@ def serve(spec: Path, requested_port: int | None = None) -> None:
         port = free_port()
         server = http.server.ThreadingHTTPServer((host, port), Handler)
     server.daemon_threads = True
-    server.stopping = threading.Event()
     url = f"http://{host}:{port}/"
     print(f"Previewing {spec}\n{url}", flush=True)
 
@@ -99,7 +106,7 @@ def serve(spec: Path, requested_port: int | None = None) -> None:
     except KeyboardInterrupt:
         pass
     finally:
-        server.stopping.set()
+        stopping.set()
         server.shutdown()
         server.server_close()
 
