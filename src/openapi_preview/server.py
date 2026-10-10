@@ -31,48 +31,56 @@ class PreviewHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = unquote(urlsplit(self.path).path)
-        if path == "/":
-            self.respond(200, "text/html; charset=utf-8", INDEX)
-        elif path == "/openapi.yaml":
-            try:
-                data = self.preview_server.spec.read_bytes()
-            except OSError:
-                self.respond(404, "text/plain; charset=utf-8", "Spec file not found")
-            else:
-                self.respond(200, "application/yaml", data)
-        elif path == "/events":
-            self.send_response(200)
-            self.send_header("Content-Type", "text/event-stream")
-            self.send_header("Cache-Control", "no-cache")
-            self.send_header("Connection", "keep-alive")
-            self.end_headers()
-            self.wfile.write(b"retry: 1000\n\n")
-            self.wfile.flush()
-            try:
-                previous: int | None = self.preview_server.spec.stat().st_mtime_ns
-            except OSError:
-                previous = None
-            while not self.preview_server.stopping.wait(0.5):
-                try:
-                    current = self.preview_server.spec.stat().st_mtime_ns
-                except OSError:
-                    current = None
-                try:
-                    self.wfile.write(
-                        b"data: reload\n\n"
-                        if current != previous
-                        else b": keepalive\n\n"
-                    )
-                    self.wfile.flush()
-                except (BrokenPipeError, ConnectionResetError):
-                    break
-                previous = current
-        elif path.startswith("/ui/"):
-            self.serve_asset(path[4:])
-        else:
-            self.respond(404, "text/plain; charset=utf-8", "Not found")
+        match path:
+            case "/":
+                self.serve_index()
+            case "/openapi.yaml":
+                self.serve_spec()
+            case "/events":
+                self.serve_events()
+            case _ if path.startswith("/ui/"):
+                self.serve_ui_asset(path.removeprefix("/ui/"))
+            case _:
+                self.respond(404, "text/plain; charset=utf-8", "Not found")
 
-    def serve_asset(self, relative: str) -> None:
+    def serve_index(self) -> None:
+        self.respond(200, "text/html; charset=utf-8", INDEX)
+
+    def serve_spec(self) -> None:
+        try:
+            data = self.preview_server.spec.read_bytes()
+        except OSError:
+            self.respond(404, "text/plain; charset=utf-8", "Spec file not found")
+        else:
+            self.respond(200, "application/yaml", data)
+
+    def serve_events(self) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.end_headers()
+        self.wfile.write(b"retry: 1000\n\n")
+        self.wfile.flush()
+        try:
+            previous: int | None = self.preview_server.spec.stat().st_mtime_ns
+        except OSError:
+            previous = None
+        while not self.preview_server.stopping.wait(0.5):
+            try:
+                current = self.preview_server.spec.stat().st_mtime_ns
+            except OSError:
+                current = None
+            try:
+                self.wfile.write(
+                    b"data: reload\n\n" if current != previous else b": keepalive\n\n"
+                )
+                self.wfile.flush()
+            except BrokenPipeError, ConnectionResetError:
+                break
+            previous = current
+
+    def serve_ui_asset(self, relative: str) -> None:
         ui_dir = self.preview_server.ui_dir
         target = (ui_dir / relative).resolve()
         if not target.is_relative_to(ui_dir.resolve()) or not target.is_file():
