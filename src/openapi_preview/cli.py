@@ -20,7 +20,9 @@ def find_spec(directory: Path) -> Path:
         raise ValueError(f"No OpenAPI spec found in {directory}")
     if len(matches) > 1:
         names = "\n".join(f"  {path.name}" for path in matches)
-        raise ValueError(f"Multiple OpenAPI specs found in {directory}:\n{names}\nSpecify one.")
+        raise ValueError(
+            f"Multiple OpenAPI specs found in {directory}:\n{names}\nSpecify one."
+        )
     return matches[0]
 
 
@@ -40,7 +42,9 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
     preview = subparsers.add_parser("preview", help="Preview an OpenAPI spec")
     preview.add_argument("path", nargs="?", help="OpenAPI YAML file")
-    preview.add_argument("--port", type=port_number, help="Port to serve on (default: 8000)")
+    preview.add_argument(
+        "--port", type=port_number, help="Port to serve on (default: 8000)"
+    )
     args = parser.parse_args()
     try:
         spec = resolve_spec(args.path)
