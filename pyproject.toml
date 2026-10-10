@@ -7,7 +7,7 @@ name = "openapi-preview"
 version = "0.2.0"
 description = "A local preview server for OpenAPI YAML files"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = ["swagger-ui-bundle>=1.1,<2"]
 
 [project.scripts]
