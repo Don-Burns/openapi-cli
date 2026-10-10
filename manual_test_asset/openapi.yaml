@@ -1,0 +1,125 @@
+openapi: 3.0.1
+info:
+  title: Luas Forecasting API
+  version: 1.0.0
+  description: >-
+    Reconstructed specification for the legacy TII Luas XML API. The official
+    API documentation is unavailable; parameters and response shapes are
+    inferred from the luascli implementation and its fixtures. Responses are
+    XML and are modeled as raw strings to preserve the wire format.
+  license:
+    name: CC BY 4.0
+    url: https://creativecommons.org/licenses/by/4.0/
+servers:
+  - url: https://luasforecasts.rpa.ie
+    description: Luas Forecasting API
+paths:
+  /xml/get.ashx:
+    get:
+      operationId: getLuasData
+      summary: Retrieve forecasts, stops, or a fare calculation
+      description: >-
+        All documented operations use this endpoint. Supply the parameters
+        relevant to the selected `action`; `stop` is required for `forecast`,
+        `from` and `to` are required for `farecalc`, and `stops` takes no
+        additional parameters. XML response shapes are documented in the
+        examples. A `forecast` response also contains the operational message
+        used as the stop status.
+      parameters:
+        - name: action
+          in: query
+          required: true
+          description: Operation to perform.
+          schema:
+            type: string
+            enum: [forecast, stops, farecalc]
+        - name: stop
+          in: query
+          required: false
+          description: Stop abbreviation; required when action is `forecast`.
+          schema:
+            type: string
+            minLength: 1
+          example: ran
+        - name: from
+          in: query
+          required: false
+          description: Origin stop abbreviation; required when action is `farecalc`.
+          schema:
+            type: string
+            minLength: 1
+          example: cit
+        - name: to
+          in: query
+          required: false
+          description: Destination stop abbreviation; required when action is `farecalc`.
+          schema:
+            type: string
+            minLength: 1
+          example: jer
+        - name: adults
+          in: query
+          required: false
+          description: Number of adults for `farecalc` (non-negative integer; defaults to 0).
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 2
+        - name: children
+          in: query
+          required: false
+          description: Number of children for `farecalc` (non-negative integer; defaults to 0).
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 1
+        - name: encrypt
+          in: query
+          required: false
+          description: Set to `false` to request readable XML, as used by luascli.
+          schema:
+            type: string
+            enum: ["true", "false"]
+            default: "false"
+      responses:
+        "200":
+          description: XML response for the selected action.
+          content:
+            application/xml:
+              schema:
+                type: string
+              examples:
+                forecast:
+                  summary: Forecast for one stop
+                  value: |-
+                    <stopInfo created="2020-11-01T17:24:37" stop="Ranelagh" stopAbv="RAN">
+                      <message>Green Line services operating normally</message>
+                      <direction name="Inbound">
+                        <tram dueMins="2" destination="Broombridge" />
+                        <tram dueMins="14" destination="Broombridge" />
+                      </direction>
+                      <direction name="Outbound">
+                        <tram dueMins="DUE" destination="Bride's Glen" />
+                      </direction>
+                    </stopInfo>
+                stops:
+                  summary: Stops grouped by line
+                  value: |-
+                    <stops>
+                      <line name="Luas Red Line">
+                        <stop abrev="TPT" isParkRide="0" isCycleRide="0" lat="53.34835" long="-6.22925833333333" pronunciation="The Point">The Point</stop>
+                      </line>
+                      <line name="Luas Green Line">
+                        <stop abrev="BRO" isParkRide="0" isCycleRide="0" lat="53.37223956" long="-6.29768465" pronunciation="Broombridge">Broombridge</stop>
+                      </line>
+                    </stops>
+                farecalc:
+                  summary: Fare calculation result
+                  value: |-
+                    <farecalc>
+                      <result peak="7.50" offpeak="7.50" zonesTravelled="3" />
+                    </farecalc>
+        default:
+          description: Error response or upstream failure; exact error format is undocumented.
